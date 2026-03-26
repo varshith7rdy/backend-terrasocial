@@ -1,0 +1,4 @@
+.env
+node_modules/
+TESTING_GUIDE.md
+TREE_VERIFICATION_GUIDE.md 

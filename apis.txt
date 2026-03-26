@@ -1,0 +1,10 @@
+export const API = {
+  login: "/auth/login",
+  register: "/auth/register",
+  getProfile: "/users/me",
+  plantTree: "/trees",
+  getTrees: "/trees",
+  getGuilds: "/guilds",
+  joinGuild: "/guilds/:id/join",
+  leaderboard: "/leaderboard"
+};
