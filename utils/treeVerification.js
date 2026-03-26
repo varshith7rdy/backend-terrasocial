@@ -1,5 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from "dotenv"
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const envConfig = dotenv.config({ path: path.resolve(__dirname, '../.env') });
+if (envConfig.parsed) {
+    Object.assign(process.env, envConfig.parsed);
+}
+
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -53,6 +63,9 @@ export const verifyTreeImage = async (imageBuffer) => {
     }
     
     Be strict in verification. If it's not clearly a tree, set isTree to false.`;
+
+    console.log(process.env.GEMINI_API_KEY);
+    
 
     const response = await model.generateContent([
       {

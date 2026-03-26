@@ -29,7 +29,6 @@ const authenticateToken = (req, res, next) => {
     next();
 };
 
-// POST /auth/login
 app.post('/auth/login', async (req, res) => {
     try {
         const { email } = req.body;
@@ -196,7 +195,7 @@ app.post('/trees', authenticateToken, upload.single('image'), async (req, res) =
             });
         }
 
-        // Step 1: Verify image using Gemini API
+        
         const imageVerification = await verifyTreeImage(req.file?.buffer);
 
         if (!imageVerification.verified) {
@@ -210,16 +209,30 @@ app.post('/trees', authenticateToken, upload.single('image'), async (req, res) =
         const nearbyQuery = `SELECT id, user_id, type, latitude, longitude, created_at FROM trees`;
         const allTrees = await executeQuery(nearbyQuery);
 
-        const nearbyTrees = allTrees
-            .filter((tree) => {
-                const distance = calculateDistance(lat, lon, tree.LATITUDE, tree.LONGITUDE);
-                return distance <= 1;
-            })
-            .map((tree) => ({
-                ...tree,
-                distance: calculateDistance(lat, lon, tree.LATITUDE, tree.LONGITUDE),
-            }))
-            .sort((a, b) => a.distance - b.distance);
+        let nearbyTrees = [];
+
+        if (Array.isArray(allTrees) && allTrees.length > 0) {
+            nearbyTrees = allTrees
+                .filter((tree) => {
+                    const tLat = tree.LATITUDE !== undefined ? tree.LATITUDE : tree.latitude;
+                    const tLon = tree.LONGITUDE !== undefined ? tree.LONGITUDE : tree.longitude;
+                    
+                    if (tLat == null || tLon == null) return false;
+                    
+                    const distance = calculateDistance(lat, lon, parseFloat(tLat), parseFloat(tLon));
+                    return distance !== null && !isNaN(distance) && distance <= 1;
+                })
+                .map((tree) => {
+                    const tLat = tree.LATITUDE !== undefined ? tree.LATITUDE : tree.latitude;
+                    const tLon = tree.LONGITUDE !== undefined ? tree.LONGITUDE : tree.longitude;
+                    return {
+                        ...tree,
+                        distance: calculateDistance(lat, lon, parseFloat(tLat), parseFloat(tLon))
+                    };
+                })
+                .sort((a, b) => a.distance - b.distance);
+        }
+
 
         if (nearbyTrees.length > 0) {
             return res.status(400).json({
