@@ -1,13 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import dotenv from "dotenv"
 
-const genAI = new GoogleGenerativeAI("AIzaSyCxxcj96ym-faE6XrFTaocjtI4uue9FuwA");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-/**
- * Calculate distance between two coordinates using Haversine formula
- * Returns distance in meters
- */
+
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371000; // Earth's radius in meters
+  const R = 6371000; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
 
