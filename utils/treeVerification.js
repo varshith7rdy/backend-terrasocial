@@ -38,7 +38,7 @@ export const verifyTreeImage = async (imageBuffer) => {
       };
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-lite' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
     const base64Image = imageBuffer.toString('base64');
     const mimeType = 'image/jpeg'; // Default - adjust based on actual image type
