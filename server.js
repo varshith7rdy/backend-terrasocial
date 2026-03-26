@@ -172,7 +172,8 @@ app.get('/trees', async (req, res) => {
 app.post('/trees', authenticateToken, upload.single('image'), async (req, res) => {
 
     try {
-        const { type, latitude, longitude, notes, forceNearby } = req.body;
+        const { type, latitude, longitude, notes } = req.body;
+        let { forceNearby } = req.body
         console.log("verifying!!");
 
         const userId = req.user.id;
