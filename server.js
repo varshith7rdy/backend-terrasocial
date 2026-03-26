@@ -173,7 +173,6 @@ app.post('/trees', authenticateToken, upload.single('image'), async (req, res) =
 
     try {
         const { type, latitude, longitude, notes } = req.body;
-        let { forceNearby } = req.body
         console.log("verifying!!");
 
         const userId = req.user.id;
@@ -208,14 +207,13 @@ app.post('/trees', authenticateToken, upload.single('image'), async (req, res) =
             });
         }
 
-        // Step 2: Check for nearby trees within 1 meter radius
         const nearbyQuery = `SELECT id, user_id, type, latitude, longitude, created_at FROM trees`;
         const allTrees = await executeQuery(nearbyQuery);
 
         const nearbyTrees = allTrees
             .filter((tree) => {
                 const distance = calculateDistance(lat, lon, tree.LATITUDE, tree.LONGITUDE);
-                return distance <= 1 && distance > 0;
+                return distance <= 1;
             })
             .map((tree) => ({
                 ...tree,
@@ -223,36 +221,10 @@ app.post('/trees', authenticateToken, upload.single('image'), async (req, res) =
             }))
             .sort((a, b) => a.distance - b.distance);
 
-        const exactDuplicateQuery = `SELECT id FROM trees WHERE latitude = ? AND longitude = ? AND type = ? LIMIT 1`;
-        const exactDuplicate = await executeQuery(exactDuplicateQuery, [lat, lon, type]);
-
-        if (exactDuplicate.length > 0) {
-            return res.status(409).json({
+        if (nearbyTrees.length > 0) {
+            return res.status(400).json({
                 success: false,
-                message: 'A tree already exists at this exact location',
-                surroundings: {
-                    radiusChecked: '1m',
-                    nearbyTreeCount: nearbyTrees.length,
-                    nearbyTrees: nearbyTrees.map((t) => ({
-                        id: t.ID,
-                        type: t.TYPE,
-                        distance: t.distance,
-                        location: {
-                            latitude: t.LATITUDE,
-                            longitude: t.LONGITUDE,
-                        },
-                    })),
-                },
-            });
-        }
-
-        forceNearby = false;
-
-        if (nearbyTrees.length > 0 && !forceNearby) {
-            return res.status(409).json({
-                success: false,
-                message: 'Trees found nearby. Verification failed, try planting at other location',
-                requiresConfirmation: true,
+                message: 'A tree already exists within a 1-meter radius. Cannot plant tree here.',
                 surroundings: {
                     radiusChecked: '1m',
                     nearbyTreeCount: nearbyTrees.length,
