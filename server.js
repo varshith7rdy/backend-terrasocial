@@ -170,10 +170,10 @@ app.get('/trees', async (req, res) => {
 
 // POST /trees
 app.post('/trees', authenticateToken, upload.single('image'), async (req, res) => {
-    
+
     try {
-        const { type, latitude, longitude, notes } = req.body;
-console.log("verifying!!");
+        const { type, latitude, longitude, notes, forceNearby } = req.body;
+        console.log("verifying!!");
 
         const userId = req.user.id;
 
@@ -214,7 +214,7 @@ console.log("verifying!!");
         const nearbyTrees = allTrees
             .filter((tree) => {
                 const distance = calculateDistance(lat, lon, tree.LATITUDE, tree.LONGITUDE);
-                return distance <= 1 && distance > 0; // Within 1 meter, excluding exact same location
+                return distance <= 1 && distance > 0;
             })
             .map((tree) => ({
                 ...tree,
@@ -222,7 +222,6 @@ console.log("verifying!!");
             }))
             .sort((a, b) => a.distance - b.distance);
 
-        // Step 3: Check if exact same tree already exists (prevent duplicates)
         const exactDuplicateQuery = `SELECT id FROM trees WHERE latitude = ? AND longitude = ? AND type = ? LIMIT 1`;
         const exactDuplicate = await executeQuery(exactDuplicateQuery, [lat, lon, type]);
 
@@ -230,6 +229,29 @@ console.log("verifying!!");
             return res.status(409).json({
                 success: false,
                 message: 'A tree already exists at this exact location',
+                surroundings: {
+                    radiusChecked: '1m',
+                    nearbyTreeCount: nearbyTrees.length,
+                    nearbyTrees: nearbyTrees.map((t) => ({
+                        id: t.ID,
+                        type: t.TYPE,
+                        distance: t.distance,
+                        location: {
+                            latitude: t.LATITUDE,
+                            longitude: t.LONGITUDE,
+                        },
+                    })),
+                },
+            });
+        }
+
+        forceNearby = false;
+
+        if (nearbyTrees.length > 0 && !forceNearby) {
+            return res.status(409).json({
+                success: false,
+                message: 'Trees found nearby. Verification failed, try planting at other location',
+                requiresConfirmation: true,
                 surroundings: {
                     radiusChecked: '1m',
                     nearbyTreeCount: nearbyTrees.length,
@@ -264,7 +286,7 @@ console.log("verifying!!");
                                         FROM trees 
                                         WHERE user_id = ? AND latitude = ? AND longitude = ? AND type = ? 
                                         ORDER BY created_at DESC LIMIT 1`;
-        
+
         const insertResult = await executeQuery(fetchInsertedTreeQuery, [userId, lat, lon, type]);
 
         if (insertResult.length === 0) {
