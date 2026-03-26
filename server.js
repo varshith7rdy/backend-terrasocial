@@ -170,10 +170,13 @@ app.get('/trees', async (req, res) => {
 
 // POST /trees
 app.post('/trees', authenticateToken, upload.single('image'), async (req, res) => {
+    
     try {
         const { type, latitude, longitude, notes } = req.body;
+console.log("verifying!!");
 
         const userId = req.user.id;
+
 
         if (!type || latitude === undefined || longitude === undefined) {
             return res.status(400).json({
@@ -245,11 +248,10 @@ app.post('/trees', authenticateToken, upload.single('image'), async (req, res) =
 
         // Step 4: Insert tree into database
         const insertQuery = `INSERT INTO trees (user_id, type, latitude, longitude, notes, image_data, created_at)
-                             VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                             RETURNING id, user_id, type, latitude, longitude, notes, created_at`;
+                             VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`;
 
-        const imageData = req.file ? req.file.buffer : null;
-        const insertResult = await executeQuery(insertQuery, [
+        const imageData = req.file ? req.file.buffer.toString('hex') : null;
+        await executeQuery(insertQuery, [
             userId,
             type,
             lat,
@@ -257,6 +259,13 @@ app.post('/trees', authenticateToken, upload.single('image'), async (req, res) =
             notes || null,
             imageData,
         ]);
+
+        const fetchInsertedTreeQuery = `SELECT id, user_id, type, latitude, longitude, notes, created_at 
+                                        FROM trees 
+                                        WHERE user_id = ? AND latitude = ? AND longitude = ? AND type = ? 
+                                        ORDER BY created_at DESC LIMIT 1`;
+        
+        const insertResult = await executeQuery(fetchInsertedTreeQuery, [userId, lat, lon, type]);
 
         if (insertResult.length === 0) {
             throw new Error('Failed to insert tree');

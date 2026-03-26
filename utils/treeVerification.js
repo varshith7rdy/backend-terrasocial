@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI("AIzaSyCxxcj96ym-faE6XrFTaocjtI4uue9FuwA");
 
 /**
  * Calculate distance between two coordinates using Haversine formula
@@ -10,22 +10,20 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371000; // Earth's radius in meters
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
-  
+
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
-  
+
+  console.log("Distance returned!")
   return distance;
 };
 
-/**
- * Verify tree image using Gemini 1.5 Flash-lite
- * Returns analysis of whether it's a sapling or grown plant
- */
+
 export const verifyTreeImage = async (imageBuffer) => {
   try {
     if (!imageBuffer) {
@@ -38,6 +36,7 @@ export const verifyTreeImage = async (imageBuffer) => {
       };
     }
 
+    console.log("verifying tree image")
     const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
     const base64Image = imageBuffer.toString('base64');
@@ -68,7 +67,7 @@ export const verifyTreeImage = async (imageBuffer) => {
     ]);
 
     const responseText = response.response.text();
-    
+
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
