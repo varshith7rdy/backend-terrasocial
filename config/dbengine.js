@@ -9,14 +9,12 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize connection options
 const connectionOptions = {
     account: process.env.SNOWFLAKE_ACCOUNT,
     username: process.env.SNOWFLAKE_USER,
     password: process.env.SNOWFLAKE_PASSWORD,
     role: process.env.SNOWFLAKE_ROLE,
     warehouse: process.env.SNOWFLAKE_WAREHOUSE
-    // We intentionally omit database and schema so we can use/create them dynamically
 };
 
 let connection;
@@ -32,6 +30,7 @@ export const connectDB = () => {
             console.log('Successfully connected to Snowflake.');
 
             try {
+                
                 // Ensure the database and schema exist
                 const dbName = process.env.SNOWFLAKE_DATABASE;
                 const schemaName = process.env.SNOWFLAKE_SCHEMA;
@@ -46,7 +45,6 @@ export const connectDB = () => {
                 const schemaPath = path.resolve(__dirname, '../schema.sql');
                 const schemaSql = fs.readFileSync(schemaPath, 'utf8');
                 
-                // Split by semicolon and run statements individually
                 const statements = schemaSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
                 for (let stmt of statements) {
                     await executeQuery(stmt);
@@ -68,7 +66,6 @@ export const executeQuery = (query, params = []) => {
              return reject(new Error('No Snowflake connection available.'));
         }
 
-        // Replace any SQLite AUTOINCREMENT specifics dynamically if schema matches
         let sfQuery = query;
 
         connection.execute({

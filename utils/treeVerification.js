@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const envConfig = dotenv.config({ path: path.resolve(__dirname, '../.env') });
 if (envConfig.parsed) {
-    Object.assign(process.env, envConfig.parsed);
+  Object.assign(process.env, envConfig.parsed);
 }
 
 
@@ -15,7 +15,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371000; 
+  const R = 6371000;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
 
@@ -48,7 +48,7 @@ export const verifyTreeImage = async (imageBuffer) => {
     const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
     const base64Image = imageBuffer.toString('base64');
-    const mimeType = 'image/jpeg'; // Default - adjust based on actual image type
+    const mimeType = 'image/jpeg'; 
 
     const prompt = `Analyze this image and determine if it shows a tree. 
     Return a JSON object with the following structure:
@@ -65,7 +65,7 @@ export const verifyTreeImage = async (imageBuffer) => {
     Be strict in verification. If it's not clearly a tree, set isTree to false.`;
 
     console.log(process.env.GEMINI_API_KEY);
-    
+
 
     const response = await model.generateContent([
       {
@@ -79,7 +79,7 @@ export const verifyTreeImage = async (imageBuffer) => {
 
     const responseText = response.response.text();
 
-    // Extract JSON from response
+    
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Could not parse JSON response from Gemini');
@@ -113,9 +113,7 @@ export const verifyTreeImage = async (imageBuffer) => {
   }
 };
 
-/**
- * Generate custom structured output for tree planting
- */
+
 export const generateTreePlantingResponse = (tree, verification, nearbyTrees) => {
   return {
     success: true,
@@ -167,9 +165,7 @@ export const generateTreePlantingResponse = (tree, verification, nearbyTrees) =>
   };
 };
 
-/**
- * Calculate tier based on points
- */
+
 const calculateTier = (totalScore) => {
   if (totalScore >= 10000) return 'Earth Guardian';
   if (totalScore >= 5000) return 'Forest Master';

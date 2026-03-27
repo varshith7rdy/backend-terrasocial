@@ -2,44 +2,81 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
+import cookieParser from 'cookie-parser';
 import { connectDB, executeQuery, closeDB } from './config/dbengine.js';
 import { verifyTreeImage, calculateDistance, generateTreePlantingResponse } from './utils/treeVerification.js';
 import { log } from 'console';
-import cors from 'cors'
+import cors from 'cors';
 
 dotenv.config();
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_fallback';
 
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use((req, res, next) => {
     console.log(req.url, req.baseUrl, req.body, req.method);
-    next()
-})
-app.use(cors())
+    next();
+});
+app.use(cors({ origin: true, credentials: true }));
 
 
 const authenticateToken = (req, res, next) => {
+    const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+    }
 
-    req.user = { id: 1, email: 'local@test.com' };
-    next();
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        res.status(400).json({ success: false, message: 'Invalid token.' });
+    }
 };
 
 app.post('/auth/login', async (req, res) => {
     try {
-        const { email } = req.body;
-        const token = "dummy_token";
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: 'Email and password are required' });
+        }
+
+        const query = `SELECT * FROM users WHERE email = ?`;
+        const users = await executeQuery(query, [email]);
+        
+        if (users.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const user = users[0];
+
+        const validPassword = await bcrypt.compare(password, user.PASSWORD || user.password);
+        if (!validPassword) {
+            return res.status(400).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ id: user.ID || user.id, email: user.EMAIL || user.email }, JWT_SECRET, { expiresIn: '7d' });
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
         res.status(200).json({
             success: true,
-            token,
             user: {
-                id: 1,
-                name: 'Local User',
-                email: email || 'local@test.com',
+                id: user.ID || user.id,
+                name: user.NAME || user.name,
+                email: user.EMAIL || user.email,
             },
         });
     } catch (error) {
@@ -48,24 +85,58 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
-// POST /auth/register
 app.post('/auth/register', async (req, res) => {
     try {
-        const { email } = req.body;
-        const token = "dummy_token";
+        const { name, email, password } = req.body;
+        if (!name || !email || !password) {
+            return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+        }
+
+        const checkQuery = `SELECT * FROM users WHERE email = ?`;
+        const existingUsers = await executeQuery(checkQuery, [email]);
+        if (existingUsers.length > 0) {
+            return res.status(400).json({ success: false, message: 'User already exists' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+
+        const insertUserQuery = `INSERT INTO users (name, email, password) VALUES (?, ?, ?)`;
+        await executeQuery(insertUserQuery, [name, email, passwordHash]);
+        
+        const newUserQuery = `SELECT * FROM users WHERE email = ?`;
+        const newUsers = await executeQuery(newUserQuery, [email]);
+        const newUser = newUsers[0];
+
+        const insertStatsQuery = `INSERT INTO user_stats (user_id) VALUES (?)`;
+        await executeQuery(insertStatsQuery, [newUser.ID || newUser.id]);
+
+        const token = jwt.sign({ id: newUser.ID || newUser.id, email: newUser.EMAIL || newUser.email }, JWT_SECRET, { expiresIn: '7d' });
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
         res.status(201).json({
             success: true,
-            token,
             user: {
-                id: 1,
-                name: 'Local User',
-                email: email || 'local@test.com',
-            },
+                id: newUser.ID || newUser.id,
+                name: newUser.NAME || newUser.name,
+                email: newUser.EMAIL || newUser.email
+            }
         });
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
+});
+
+app.post('/auth/logout', (req, res) => {
+    res.clearCookie('token');
+    res.status(200).json({ success: true, message: 'Logged out successfully' });
 });
 
 // ============ USER PROFILE ENDPOINTS ============
@@ -80,7 +151,7 @@ app.get('/users/me', authenticateToken, async (req, res) => {
         const userRows = await executeQuery(userQuery, [userId]);
 
         if (userRows.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found' });
+            return res.status(404).json({ success: false, message: 'User not fod' });
         }
 
         const user = userRows[0];
@@ -353,7 +424,7 @@ app.post('/guilds/:id/join', authenticateToken, async (req, res) => {
         const existing = await executeQuery(checkQuery, [guildId, userId]);
 
         if (existing.length > 0) {
-            // User is already a member, so remove them (leave)
+            // remove them (leave)
             const deleteQuery = `DELETE FROM guild_members WHERE guild_id = ? AND user_id = ?`;
             await executeQuery(deleteQuery, [guildId, userId]);
 
@@ -437,7 +508,6 @@ const PORT = process.env.PORT || 3000;
     }
 })();
 
-// Graceful shutdown
 process.on('SIGINT', async () => {
     await closeDB();
     process.exit(0);
